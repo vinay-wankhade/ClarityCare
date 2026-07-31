@@ -1,0 +1,455 @@
+/* ============================================================
+   SAMPLE MESSY DISCHARGE NOTES
+   ============================================================ */
+const SAMPLES = {
+  chf: `DISCHARGE SUMMARY
+Pt: 68 yo F, admitted 3d for acute on chronic CHF exacerbation, EF 35% (echo 6/2). Sx: worsening DOE, orthopnea 3-pillow, +2 LE edema, wt gain 8lbs/1wk. CXR c/w pulm edema. BNP 1450 on admit.
+Tx w/ IV Lasix 40mg BID, transitioned to PO Lasix 40mg QAM day 2. Improved to baseline wt -6.5lbs net diuresis. O2 sat RA 96% at d/c.
+DC MEDS:
+- Furosemide 40mg PO QAM
+- Lisinopril 10mg PO QD
+- Metoprolol succinate 50mg PO QD
+- Potassium chloride 20mEq PO QD w/ Lasix
+- ASA 81mg PO QD
+- Atorvastatin 40mg PO QHS
+Dz teaching provided re: low Na diet <2g/day, daily wt, fluid restriction 1.5L/day.
+F/U: Cardiology (Dr. Patel) 1wk post d/c, call to sched. PCP (Dr. Nguyen) 2wk. BMP recheck at PCP visit d/t K+ suppl.
+Return precautions: wt gain >3lbs in 2 days or >5lbs in 1wk, worsening SOB/orthopnea, chest pain, syncope, palpitations -> ED eval. Call cardiology if any of above prior to ED if stable.`,
+
+  appy: `DISCHARGE NOTE - SURGERY
+24 yo M s/p uncomplicated lap appendectomy 7/28 for acute appendicitis, no perforation. EBL min. Tolerating PO, ambulating, BM x1 prior to d/c. Incision sites C/D/I, staples x3 (umbilical, RLQ, suprapubic).
+DC meds:
+- Acetaminophen 650mg PO Q6H PRN pain (max 3000mg/24h)
+- Ibuprofen 400mg PO Q6H PRN pain, take w/ food
+- Ondansetron 4mg PO Q8H PRN nausea
+- Docusate sodium 100mg PO BID PRN constipation while on opioids - NOT prescribed opioids at this time
+Activity: no heavy lifting >10lbs x2wk, no driving while on sedating meds, may shower 24h post-op (no baths/soaking/pools x1wk), staple removal in 7-10 days at surgery clinic.
+F/U: Surgery clinic (Dr. Alvarez) POD 10 for staple removal, call 555-0199 to confirm time.
+Return to ED if: fever >101.5F, worsening abd pain, redness/drainage/dehiscence at incision, persistent vomiting, no BM x3d, calf swelling/pain.`,
+
+  dm2: `DISCHARGE SUMMARY
+57 yo M admitted for CAP (RML infiltrate on CXR), incidentally found new dx T2DM, A1c 9.8%, random glucose 310 on admission. Tx'd w/ IV then PO levofloxacin, afebrile x48h prior d/c, sats stable RA.
+Started on metformin during admission, titrating.
+DC MEDS:
+- Levofloxacin 750mg PO QD x 2 more days (day 6 of 7 total, last dose 7/30)
+- Metformin 500mg PO BID w/ meals, will titrate to 1000mg BID at PCP f/u if tolerated
+- Albuterol HFA 2 puffs Q4H PRN SOB/wheeze
+Pt educated re: new DM2 dx - diet, home glucose monitoring BID (AM fasting + one other), sx of hyper/hypoglycemia.
+Labs pending at d/c: repeat A1c in 3mo, lipid panel, urine microalbumin - to be drawn at PCP f/u.
+F/U: PCP (Dr. Osei) in 1 wk for DM2 management + finish abx course check, Endocrinology referral placed - pt to call for appt within 2-3wks.
+Return to ED/call 911 if: BG <70 w/ confusion/LOC changes, BG >400, worsening SOB/chest pain/high fever, confusion, coughing blood.`
+};
+
+/* ============================================================
+   SYSTEM PROMPT
+   ============================================================ */
+const SYSTEM_PROMPT = `You are a certified clinical health-literacy translator. Your ONLY job is to rewrite a raw hospital discharge note into a patient-friendly instruction sheet at a 5th-grade reading level (short sentences, common words, define any medical term you must keep), while preserving 100% of the clinically important facts.
+
+=== NON-NEGOTIABLE RULES ===
+
+1. ZERO DATA LOSS (MEDICATIONS)
+   - Every single medication in the note must appear in your output.
+   - For each medication, preserve: exact drug name, exact dosage/strength, exact frequency/schedule, route (if given), and any special instruction (with food, PRN condition, max daily dose, taper, "last dose" date, etc).
+   - Never drop a medication because it seems minor (e.g. stool softeners, PRN meds, supplements, eye drops).
+   - Never merge two distinct medications into one entry.
+   - Translate frequency shorthand into plain language but KEEP the original shorthand in parentheses so nothing is lost in translation, e.g. "Twice a day (BID)".
+
+2. ZERO DATA LOSS (FOLLOW-UPS)
+   - Every follow-up appointment, referral, lab recheck, or "call to schedule" instruction must appear.
+   - Preserve provider/specialty, timeframe, and reason if stated.
+
+3. ZERO DATA LOSS (WARNING SIGNS)
+   - Every explicit "return to ED / call 911 / return precaution" item in the note must appear, worded simply, with the same urgency.
+   - If the note does NOT explicitly list warning signs for the diagnosis given, you may add well-established, standard warning signs for that diagnosis or medication class ONLY. Any such addition MUST be marked "source": "standard_precaution" (not "explicit") so it is clearly distinguished from what the clinician actually wrote. Do not invent patient-specific facts (numbers, thresholds) that are not standard clinical guidance.
+
+4. NO HALLUCINATION
+   - Do not invent diagnoses, medications, doses, appointments, or facts that are not in the note.
+   - Do not change any number (dose, frequency, timeframe, lab value). If something is ambiguous or illegible, write it exactly as given and do not guess.
+   - If information genuinely conflicts within the note, keep both mentions and do not silently resolve the conflict.
+
+5. READING LEVEL
+   - Target 5th-grade reading level (short sentences, everyday words, active voice).
+   - When a medical term must be kept (e.g. a diagnosis name), immediately explain it in plain words in the same sentence.
+   - Never use unexplained abbreviations in the "simple_summary" or "instructions" fields (BID/PRN/etc are fine inside the medications array frequency field since they're paired with a plain-language translation).
+
+6. SELF-VERIFICATION BEFORE RESPONDING
+   - Before you output, re-scan the original note line by line and confirm every medication, every follow-up, and every explicit warning sign is represented somewhere in your JSON. Count them and report accurate counts in the "verification" object.
+
+=== OUTPUT FORMAT ===
+Respond with ONLY valid JSON (no markdown code fences, no commentary before or after). Match this exact schema:
+
+{
+  "simple_summary": "2-4 short sentences at 5th-grade level explaining what happened and the diagnosis in plain words.",
+  "medications": [
+    {
+      "name": "string - exact drug name from note",
+      "dosage": "string - exact strength, e.g. '40mg'",
+      "frequency": "string - plain language plus original shorthand in parentheses",
+      "instructions": "string - plain-language special instructions (food, PRN trigger, max dose, duration/last dose date), or 'No special instructions' if none",
+      "purpose": "string - one short plain-language sentence on why the patient is taking it"
+    }
+  ],
+  "followups": [
+    {
+      "provider": "string - who/what clinic, e.g. 'Heart doctor (Dr. Patel)'",
+      "timeframe": "string - when, e.g. 'within 1 week'",
+      "reason": "string - plain-language reason for the visit"
+    }
+  ],
+  "warnings": [
+    {
+      "sign": "string - plain-language description of the warning sign",
+      "action": "string - what to do, e.g. 'Go to the Emergency Room right away' or 'Call 911'",
+      "source": "explicit" or "standard_precaution"
+    }
+  ],
+  "verification": {
+    "medications_count": integer,
+    "followups_count": integer,
+    "warnings_count": integer,
+    "note": "one short sentence confirming a line-by-line re-check was performed"
+  }
+}`;
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let lastNoteText = "";
+let lastResult = null;
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = (id) => document.getElementById(id);
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showError(msg){
+  const el = $('error-banner');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function clearError(){
+  $('error-banner').classList.add('hidden');
+  $('error-banner').textContent = '';
+}
+
+$('note-input').addEventListener('input', () => {
+  $('char-count').textContent = $('note-input').value.length + ' characters';
+});
+
+$('sample-select').addEventListener('change', (e) => {
+  const val = e.target.value;
+  if (val && SAMPLES[val]) {
+    $('note-input').value = SAMPLES[val];
+    $('char-count').textContent = SAMPLES[val].length + ' characters';
+  }
+});
+
+$('clear-btn').addEventListener('click', () => {
+  $('note-input').value = '';
+  $('sample-select').value = '';
+  $('char-count').textContent = '0 characters';
+});
+
+$('api-key').addEventListener('input', () => {
+  $('key-status').textContent = $('api-key').value.trim() ? 'key set' : 'not connected';
+  $('key-status').style.color = $('api-key').value.trim() ? 'var(--green)' : 'var(--ink-soft)';
+});
+
+/* Mobile tabs */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.tab;
+    $('tab-guide').classList.toggle('hidden', target !== 'guide');
+    $('tab-audit').classList.toggle('hidden', target !== 'audit');
+  });
+});
+
+/* ============================================================
+   CLAUDE API CALL
+   ============================================================ */
+async function callClaude(noteText){
+  const apiKey = $('api-key').value.trim();
+  if (!apiKey){
+    throw new Error('Please enter your Anthropic API key at the top of the page.');
+  }
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 3000,
+      temperature: 0,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `Translate the following raw discharge note into the required JSON format. Respond with ONLY the JSON object, nothing else.\n\n--- RAW DISCHARGE NOTE ---\n${noteText}`
+        }
+      ]
+    })
+  });
+
+  if (!response.ok){
+    let detail = '';
+    try {
+      const errJson = await response.json();
+      detail = errJson?.error?.message || JSON.stringify(errJson);
+    } catch(e){ detail = await response.text(); }
+    throw new Error(`API request failed (${response.status}): ${detail}`);
+  }
+
+  const data = await response.json();
+  const textBlocks = (data.content || [])
+    .filter(item => item.type === 'text')
+    .map(item => item.text)
+    .join('\n');
+
+  let cleaned = textBlocks.trim();
+  cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch(e){
+    throw new Error('The model did not return valid JSON. Raw response: ' + cleaned.slice(0, 400));
+  }
+  return parsed;
+}
+
+/* ============================================================
+   LOCAL AUDIT ENGINE (independent of the LLM's own claims)
+   ============================================================ */
+function normalize(s){
+  return (s || '').toLowerCase();
+}
+
+// Very small stemmer for drug-name matching: strip common suffix noise, compare first token
+function firstToken(name){
+  return normalize(name).split(/[\s,(]/)[0].replace(/[^a-z0-9]/g,'');
+}
+
+function noteContainsTerm(noteLower, term){
+  const t = firstToken(term);
+  if (!t) return false;
+  return noteLower.includes(t);
+}
+
+function buildAudit(noteText, result){
+  const noteLower = normalize(noteText);
+  const medAudit = (result.medications || []).map(m => ({
+    label: m.name,
+    found: noteContainsTerm(noteLower, m.name)
+  }));
+  const fuAudit = (result.followups || []).map(f => ({
+    label: f.provider,
+    found: noteContainsTerm(noteLower, f.provider) || normalize(noteText).includes('f/u') || normalize(noteText).includes('follow')
+  }));
+  const warnAudit = (result.warnings || []).map(w => ({
+    label: w.sign,
+    explicit: w.source === 'explicit'
+  }));
+  return { medAudit, fuAudit, warnAudit };
+}
+
+function highlightNote(noteText, result){
+  let html = escapeHtml(noteText);
+  const terms = [];
+  (result.medications || []).forEach(m => terms.push(m.name));
+  (result.followups || []).forEach(f => terms.push(f.provider));
+
+  terms.forEach(term => {
+    const tok = firstToken(term);
+    if (!tok || tok.length < 3) return;
+    const re = new RegExp('(' + tok.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '[a-zA-Z]*)', 'gi');
+    html = html.replace(re, '<mark class="hl">$1</mark>');
+  });
+  return html;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderGuide(result){
+  $('summary-text').textContent = result.simple_summary || '';
+
+  const medsList = $('meds-list');
+  medsList.innerHTML = '';
+  (result.medications || []).forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'med-card pl-3 py-1';
+    div.innerHTML = `
+      <div class="flex flex-wrap items-baseline gap-x-2">
+        <span class="font-semibold text-[15px]">${escapeHtml(m.name)}</span>
+        <span class="font-mono text-xs" style="color:var(--ink-soft);">${escapeHtml(m.dosage || '')}</span>
+      </div>
+      <div class="text-sm mt-0.5"><span class="font-medium">When:</span> ${escapeHtml(m.frequency || '')}</div>
+      <div class="text-sm"><span class="font-medium">How:</span> ${escapeHtml(m.instructions || '')}</div>
+      <div class="text-sm" style="color:var(--ink-soft);"><span class="font-medium">Why:</span> ${escapeHtml(m.purpose || '')}</div>
+    `;
+    medsList.appendChild(div);
+  });
+  if (!(result.medications || []).length){
+    medsList.innerHTML = '<div class="text-sm" style="color:var(--ink-soft);">No medications were listed in this note.</div>';
+  }
+
+  const fuList = $('fu-list');
+  fuList.innerHTML = '';
+  (result.followups || []).forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'followup-card pl-3 py-1';
+    div.innerHTML = `
+      <div class="font-semibold text-[15px]">${escapeHtml(f.provider)}</div>
+      <div class="text-sm"><span class="font-medium">When:</span> ${escapeHtml(f.timeframe || '')}</div>
+      <div class="text-sm" style="color:var(--ink-soft);">${escapeHtml(f.reason || '')}</div>
+    `;
+    fuList.appendChild(div);
+  });
+  if (!(result.followups || []).length){
+    fuList.innerHTML = '<div class="text-sm" style="color:var(--ink-soft);">No follow-up appointments were listed in this note.</div>';
+  }
+
+  const warnList = $('warn-list');
+  warnList.innerHTML = '';
+  (result.warnings || []).forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'warning-card pl-3 py-1';
+    div.innerHTML = `
+      <div class="font-semibold text-[15px]">${escapeHtml(w.sign)}</div>
+      <div class="text-sm"><span class="font-medium">Do this:</span> ${escapeHtml(w.action || '')}</div>
+      <div class="text-xs mt-1"><span class="chip ${w.source === 'explicit' ? 'chip-found' : 'chip-check'}">${w.source === 'explicit' ? 'From your discharge note' : 'Standard precaution'}</span></div>
+    `;
+    warnList.appendChild(div);
+  });
+  if (!(result.warnings || []).length){
+    warnList.innerHTML = '<div class="text-sm" style="color:var(--ink-soft);">No warning signs were identified.</div>';
+  }
+
+  $('guide-empty').classList.add('hidden');
+  $('guide-loading').classList.add('hidden');
+  $('guide-output').classList.remove('hidden');
+}
+
+function renderVerify(result){
+  const v = result.verification || {};
+  $('verify-meds').textContent = `Medications: ${(result.medications||[]).length}/${v.medications_count ?? (result.medications||[]).length}`;
+  $('verify-fu').textContent = `Follow-ups: ${(result.followups||[]).length}/${v.followups_count ?? (result.followups||[]).length}`;
+  $('verify-warn').textContent = `Warnings: ${(result.warnings||[]).length}/${v.warnings_count ?? (result.warnings||[]).length}`;
+  $('verify-strip').classList.remove('hidden');
+}
+
+function renderAudit(noteText, result){
+  const { medAudit, fuAudit, warnAudit } = buildAudit(noteText, result);
+
+  const medEl = $('audit-meds');
+  medEl.innerHTML = medAudit.map(m => `
+    <div class="flex items-center justify-between text-sm">
+      <span>${escapeHtml(m.label)}</span>
+      <span class="chip ${m.found ? 'chip-found' : 'chip-check'}">${m.found ? '✓ matched' : '⚠ verify'}</span>
+    </div>`).join('') || '<div class="text-xs" style="color:var(--ink-soft);">None</div>';
+
+  const fuEl = $('audit-fu');
+  fuEl.innerHTML = fuAudit.map(f => `
+    <div class="flex items-center justify-between text-sm">
+      <span>${escapeHtml(f.label)}</span>
+      <span class="chip ${f.found ? 'chip-found' : 'chip-check'}">${f.found ? '✓ matched' : '⚠ verify'}</span>
+    </div>`).join('') || '<div class="text-xs" style="color:var(--ink-soft);">None</div>';
+
+  const warnEl = $('audit-warn');
+  warnEl.innerHTML = warnAudit.map(w => `
+    <div class="flex items-center justify-between text-sm">
+      <span>${escapeHtml(w.label)}</span>
+      <span class="chip ${w.explicit ? 'chip-found' : 'chip-check'}">${w.explicit ? '✓ from note' : '⚠ standard'}</span>
+    </div>`).join('') || '<div class="text-xs" style="color:var(--ink-soft);">None</div>';
+
+  $('audit-note-view').innerHTML = highlightNote(noteText, result);
+
+  $('audit-empty').classList.add('hidden');
+  $('audit-output').classList.remove('hidden');
+}
+
+/* ============================================================
+   GENERATE
+   ============================================================ */
+$('generate-btn').addEventListener('click', async () => {
+  clearError();
+  const noteText = $('note-input').value.trim();
+  if (!noteText){
+    showError('Please paste or load a discharge note first.');
+    return;
+  }
+
+  const btn = $('generate-btn');
+  btn.disabled = true;
+  $('gen-label').textContent = 'Generating...';
+  $('gen-icon').classList.add('animate-spin');
+
+  $('guide-empty').classList.add('hidden');
+  $('guide-output').classList.add('hidden');
+  $('guide-loading').classList.remove('hidden');
+  $('verify-strip').classList.add('hidden');
+
+  try {
+    const result = await callClaude(noteText);
+    lastNoteText = noteText;
+    lastResult = result;
+    renderGuide(result);
+    renderVerify(result);
+    renderAudit(noteText, result);
+  } catch (err){
+    $('guide-loading').classList.add('hidden');
+    $('guide-empty').classList.remove('hidden');
+    showError(err.message || 'Something went wrong while generating the guide.');
+  } finally {
+    btn.disabled = false;
+    $('gen-label').textContent = 'Generate Patient Guide';
+    $('gen-icon').classList.remove('animate-spin');
+  }
+});
+
+/* ============================================================
+   COPY / PRINT
+   ============================================================ */
+$('copy-btn').addEventListener('click', async () => {
+  if (!lastResult){ showError('Generate a guide first.'); return; }
+  const r = lastResult;
+  let text = `WHAT HAPPENED & WHAT IT MEANS\n${r.simple_summary}\n\n`;
+  text += `YOUR MEDICINES\n`;
+  (r.medications||[]).forEach(m => {
+    text += `- ${m.name} (${m.dosage}) — ${m.frequency}. ${m.instructions} Why: ${m.purpose}\n`;
+  });
+  text += `\nFOLLOW-UP APPOINTMENTS\n`;
+  (r.followups||[]).forEach(f => {
+    text += `- ${f.provider} — ${f.timeframe}. ${f.reason}\n`;
+  });
+  text += `\nWARNING SIGNS — GO TO THE ER OR CALL 911\n`;
+  (r.warnings||[]).forEach(w => {
+    text += `- ${w.sign} -> ${w.action}${w.source === 'standard_precaution' ? ' (standard precaution)' : ''}\n`;
+  });
+
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = $('copy-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  } catch(e){
+    showError('Could not copy to clipboard. Please select and copy manually.');
+  }
+});
+
+$('print-btn').addEventListener('click', () => {
+  if (!lastResult){ showError('Generate a guide first.'); return; }
+  window.print();
+});
