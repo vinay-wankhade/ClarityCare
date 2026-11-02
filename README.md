@@ -1,72 +1,63 @@
 # 🩺 Clarity Care
 
-**Turn confusing doctor discharge notes into simple instructions patients can actually understand.**
+**Healthcare Discharge Note → Patient Instruction Sheet Converter**
 
-![Status](https://img.shields.io/badge/status-planning-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Backend](https://img.shields.io/badge/backend-FastAPI%20%7C%20Spring%20Boot-009688)
-![Database](https://img.shields.io/badge/database-Supabase%20PostgreSQL-3ECF8E)
+Converts raw, shorthand-heavy clinician discharge notes into clear, 6th-grade reading level patient instruction sheets. A nurse must verify the output before it can be exported as PDF.
 
-> 🚧 **This project is in the planning stage.** This README describes the idea and the planned design. Code is coming soon.
+## Core Guarantees
+- **Zero omission** — every medication, dosage, and number from the source note is accounted for
+- **Zero hallucination** — nothing is invented; missing details get the placeholder `[Ask Your Nurse: Missing Detail]`
+- **Deterministic guardrails** — regex-based cross-validation of all numeric values
 
-## The Problem
+## Quick Start
 
-Patients leaving the hospital often forget or misunderstand jargon-heavy discharge instructions. This leads to medication errors, poor recovery, and preventable hospital readmissions.
+```bash
+# 1. Clone & navigate
+cd clarity-care
 
-## The Idea
+# 2. Create virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 
-Clarity Care will convert raw, shorthand-heavy clinician notes into clear, 6th-grade reading level patient instruction sheets. A nurse reviews and approves every sheet before it reaches the patient, so nothing is missed or made up.
+# 3. Install dependencies
+pip install -r backend/requirements.txt
 
-## Planned Features
+# 4. Set up environment
+copy .env.example .env       # Windows
+# cp .env.example .env       # macOS/Linux
+# Edit .env and add your GEMINI_API_KEY
 
-- **Structured AI output:** the LLM fills a strict JSON schema (medications split into Start, Continue, and Stop; daily care; appointments; warning signs) at temperature 0.0.
-- **Shorthand translation:** terms like `BID` become "twice a day (BID)", so nurses can verify quickly.
-- **Placeholders for missing info:** if a detail is not in the note, the output says `[Ask Your Nurse: Missing Detail]` instead of guessing.
-- **Number check:** a backend check flags any dose or quantity (e.g. `40mg`, `1.5L`) that is dropped or changed.
-- **Nurse verification:** a split-screen UI where a nurse must confirm all Hold/Stop medications before exporting the patient PDF or translating it (e.g. Hindi, Marathi).
-
-## Planned Workflow
-
-```
-Raw Note → LLM (JSON) → Number Check → Nurse Review → Patient PDF
-```
-
-## Example (Target Behavior)
-
-**Input**
-```
-Hold Lisinopril 10mg until renal panel checked. Continue Metoprolol succinate 50mg PO daily.
+# 5. Run
+python -m uvicorn backend.app.main:app --reload
 ```
 
-**Output**
-- 🔵 **Keep taking:** Metoprolol succinate, 50 mg, by mouth (PO), once a day
-- 🔴 **STOP for now:** Lisinopril, 10 mg, until your kidney blood test is checked
+Open **http://localhost:8000** in your browser.
 
-## Planned Tech Stack
+## Tech Stack
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.11, FastAPI |
+| Frontend | HTML / CSS / JS (no build step) |
+| AI | Google Gemini API (structured JSON output, temperature 0.0) |
+| Database | Supabase PostgreSQL (with SQLite fallback) |
+| PDF Export | ReportLab |
 
-- **Frontend:** HTML/CSS/JS or React
-- **Backend:** Python (FastAPI) or Java (Spring Boot)
-- **AI:** LLM API with Structured Outputs
-- **Database:** PostgreSQL (Supabase) with tables `discharge_records`, `structured_instructions`, `audit_checklist`
+## API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/records` | Submit raw note → AI pipeline → save |
+| `GET` | `/api/records/{id}` | Fetch record + instructions + audit |
+| `PATCH` | `/api/audit/{item_id}` | Nurse verifies an audit item |
+| `POST` | `/api/records/{id}/verify` | Mark record as verified |
+| `GET` | `/api/records/{id}/export` | Download PDF |
 
-## Getting Started
+## Status Flow
+```
+pending → needs_review → verified → exported
+```
 
-Setup instructions will be added once the first version is built.
-
-## Roadmap
-
-- [ ] Build the backend pipeline (LLM extraction + number check)
-- [ ] Build the nurse split-screen verification UI
-- [ ] Patient PDF export
-- [ ] Hindi and Marathi translation
-- [ ] EHR/FHIR integration
-- [ ] Voice-note dictation for doctors
-- [ ] WhatsApp follow-up reminders
-
-## Disclaimer
-
-This is a prototype idea, not a certified medical device. All generated content must be reviewed by a qualified clinician before being given to a patient.
-
-## License
-
-MIT
+## Running Tests
+```bash
+pytest tests/ -v
+```
