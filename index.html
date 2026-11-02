@@ -1,207 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Clarity Care &mdash; Discharge Summary Translator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Clarity Care – Convert discharge notes into clear patient instruction sheets with nurse verification.">
+    <title>Clarity Care – Discharge Instructions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="min-h-screen">
-
-<!-- ============ TOP BAR ============ -->
-<header class="border-b no-print" style="border-color:var(--line); background:var(--panel);">
-  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-md flex items-center justify-center" style="background:var(--teal);">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      </div>
-      <div>
-        <div class="font-display text-xl leading-none" style="font-weight:600;">Clarity Care</div>
-        <div class="eyebrow">Discharge Summary Translator</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-3">
-      <input id="api-key" type="password" placeholder="Paste Anthropic API key (sk-ant-...)"
-        class="text-sm px-3 py-2 rounded-md border w-72 font-mono"
-        style="border-color:var(--line);" autocomplete="off" />
-      <span id="key-status" class="text-xs font-mono" style="color:var(--ink-soft);">not connected</span>
-    </div>
-  </div>
-</header>
-
-<!-- ============ MAIN ============ -->
-<main class="max-w-7xl mx-auto px-6 py-8">
-
-  <div class="flex items-start justify-between gap-8 mb-6">
-    <div>
-      <h1 class="font-display text-3xl" style="font-weight:600;">Turn clinical notes into instructions a patient can actually follow.</h1>
-      <p class="mt-2 text-sm" style="color:var(--ink-soft); max-width:56ch;">
-        Paste a raw discharge note. Clarity Care rewrites it at a 5th-grade reading level &mdash;
-        without dropping a single medication, dose, appointment, or warning sign.
-      </p>
-    </div>
-    <div class="hidden md:block pulse-divider pulse-static w-40 no-print">
-      <svg viewBox="0 0 300 22" preserveAspectRatio="none">
-        <path class="pulse-line" d="M0,11 L60,11 L75,2 L90,20 L105,11 L300,11" />
-      </svg>
-    </div>
-  </div>
-
-  <div id="error-banner" class="hidden mb-4 p-3 rounded-md text-sm font-medium" style="background:var(--red-tint); color:var(--red); border:1px solid var(--red);"></div>
-
-  <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
-    <!-- ============ LEFT: INPUT PANEL ============ -->
-    <section class="xl:col-span-4 no-print">
-      <div class="card p-5 sticky top-6">
-        <div class="eyebrow mb-2">Step 1 &middot; Raw Note</div>
-
-        <label class="text-xs font-semibold block mb-1" style="color:var(--ink-soft);">Load a sample discharge note</label>
-        <select id="sample-select" class="w-full text-sm px-3 py-2 rounded-md border mb-4" style="border-color:var(--line);">
-          <option value="">&mdash; choose a sample &mdash;</option>
-          <option value="chf">CHF Exacerbation, 68F</option>
-          <option value="appy">Post-Op Laparoscopic Appendectomy, 24M</option>
-          <option value="dm2">New Type 2 Diabetes + Pneumonia, 57M</option>
-        </select>
-
-        <label class="text-xs font-semibold block mb-1" style="color:var(--ink-soft);">Discharge note text</label>
-        <textarea id="note-input" rows="16"
-          class="w-full p-3 rounded-md border resize-y"
-          style="border-color:var(--line); background:#FBFCFC;"
-          placeholder="Paste the raw, messy discharge note here..."></textarea>
-
-        <div class="flex items-center justify-between mt-2 mb-4">
-          <span id="char-count" class="text-xs font-mono" style="color:var(--ink-soft);">0 characters</span>
-          <button id="clear-btn" class="text-xs font-semibold" style="color:var(--ink-soft);">Clear</button>
+<body>
+    <!-- ─── Top Nav ──────────────────────────────────── -->
+    <nav class="top-nav" id="top-nav">
+        <div class="nav-brand">
+            <div class="nav-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect x="2" y="10" width="24" height="8" rx="2" fill="url(#grad1)"/>
+                    <rect x="10" y="2" width="8" height="24" rx="2" fill="url(#grad1)"/>
+                    <defs>
+                        <linearGradient id="grad1" x1="0" y1="0" x2="28" y2="28">
+                            <stop offset="0%" stop-color="#60a5fa"/>
+                            <stop offset="100%" stop-color="#a78bfa"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <span class="brand-text">Clarity Care</span>
         </div>
-
-        <button id="generate-btn"
-          class="btn-primary w-full py-3 rounded-md flex items-center justify-center gap-2">
-          <svg id="gen-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-          <span id="gen-label">Generate Patient Guide</span>
-        </button>
-        <p class="text-xs mt-3" style="color:var(--ink-soft);">
-          Your API key is used only in your browser to call Anthropic's API directly. It is never stored or sent anywhere else.
-        </p>
-      </div>
-    </section>
-
-    <!-- ============ RIGHT: OUTPUT ============ -->
-    <section id="right-col" class="xl:col-span-8">
-
-      <!-- Zero-loss verification strip -->
-      <div id="verify-strip" class="hidden card p-4 mb-5" style="background:var(--teal-tint); border-color:var(--teal-tint-2);">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-          <div class="eyebrow" style="color:var(--teal-deep);">Zero-Loss Verification</div>
-          <div id="verify-meds" class="font-mono"></div>
-          <div id="verify-fu" class="font-mono"></div>
-          <div id="verify-warn" class="font-mono"></div>
+        <div class="nav-status" id="nav-status">
+            <span class="status-dot"></span>
+            <span class="status-text">Ready</span>
         </div>
-      </div>
+    </nav>
 
-      <!-- Tabs (mobile/tablet) -->
-      <div class="flex items-center gap-6 border-b mb-5 xl:hidden no-print" style="border-color:var(--line);">
-        <button class="tab-btn active py-2" data-tab="guide">Patient Guide</button>
-        <button class="tab-btn py-2" data-tab="audit">Accuracy Audit</button>
-      </div>
+    <!-- ─── Main Content ────────────────────────────── -->
+    <main class="main-container" id="main-container">
 
-      <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
-
-        <!-- PATIENT GUIDE -->
-        <div id="tab-guide" class="xl:col-span-3">
-          <div class="flex items-center justify-between mb-3 no-print">
-            <div class="eyebrow">Patient Guide</div>
-            <div class="flex gap-2">
-              <button id="copy-btn" class="btn-ghost text-xs px-3 py-1.5 rounded-md">Copy Summary</button>
-              <button id="print-btn" class="btn-ghost text-xs px-3 py-1.5 rounded-md">Print / Export PDF</button>
-            </div>
-          </div>
-
-          <div id="guide-empty" class="card p-10 text-center" style="color:var(--ink-soft);">
-            <svg class="mx-auto mb-3" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="1.5"><path d="M9 12h6M9 16h6M9 8h6M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
-            <p class="text-sm">Load a sample note or paste your own, then generate a guide to see it here.</p>
-          </div>
-
-          <div id="guide-loading" class="hidden space-y-3">
-            <div class="skeleton h-24"></div>
-            <div class="skeleton h-32"></div>
-            <div class="skeleton h-20"></div>
-            <div class="skeleton h-28"></div>
-          </div>
-
-          <div id="guide-output" class="hidden space-y-5">
-
-            <div class="card p-5">
-              <div class="flex items-center gap-2 mb-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                <h2 class="font-display text-lg" style="font-weight:600;">What Happened &amp; What It Means</h2>
-              </div>
-              <p id="summary-text" class="text-[15px] leading-relaxed" style="color:var(--ink);"></p>
+        <!-- ─── Input Panel ──────────────────────────── -->
+        <section class="panel input-panel glass" id="input-panel">
+            <div class="panel-header">
+                <h1 class="panel-title">
+                    <span class="title-icon">📋</span>
+                    Discharge Note Input
+                </h1>
+                <p class="panel-subtitle">Paste the clinician's raw discharge note below</p>
             </div>
 
-            <div class="card p-5">
-              <div class="flex items-center gap-2 mb-3">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M10.5 20.5L3.5 13.5a4.95 4.95 0 1 1 7-7l7 7a4.95 4.95 0 1 1-7 7z"/><path d="M8.5 8.5l7 7"/></svg>
-                <h2 class="font-display text-lg" style="font-weight:600;">Your Medicines</h2>
-              </div>
-              <div id="meds-list" class="space-y-3"></div>
+            <div class="form-group">
+                <label for="patient-ref" class="form-label">Patient Reference</label>
+                <input
+                    type="text"
+                    id="patient-ref"
+                    class="form-input"
+                    placeholder="e.g. PT-2024-0847"
+                    autocomplete="off"
+                >
             </div>
 
-            <div class="card p-5">
-              <div class="flex items-center gap-2 mb-3">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3E6FA6" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                <h2 class="font-display text-lg" style="font-weight:600;">Follow-Up Appointments</h2>
-              </div>
-              <div id="fu-list" class="space-y-3"></div>
+            <div class="form-group">
+                <label for="raw-note" class="form-label">Raw Discharge Note</label>
+                <textarea
+                    id="raw-note"
+                    class="form-textarea"
+                    rows="14"
+                    placeholder="Paste the discharge note here...
+
+Example:
+Dx: CHF exacerbation. Start Lasix 40mg PO BID. Continue Metoprolol 25mg PO QD. Hold Lisinopril 10mg. Diet: 2g Na, 1.5L fluid restriction. F/u cardiology in 5-7 days. ER if SOB, weight gain >3lbs/day, CP."
+                ></textarea>
+                <div class="char-count" id="char-count">0 characters</div>
             </div>
 
-            <div class="card p-5" style="border-color:var(--red); background:var(--red-tint);">
-              <div class="flex items-center gap-2 mb-3">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-                <h2 class="font-display text-lg" style="font-weight:600; color:var(--red);">Warning Signs &mdash; Go to the ER or Call 911</h2>
-              </div>
-              <div id="warn-list" class="space-y-3"></div>
+            <button class="btn btn-primary" id="btn-process" type="button">
+                <span class="btn-icon">⚡</span>
+                Process Note
+                <span class="btn-loader" id="btn-loader"></span>
+            </button>
+
+            <div class="sample-note-link">
+                <button class="btn-text" id="btn-sample" type="button">Load sample discharge note</button>
+            </div>
+        </section>
+
+        <!-- ─── Results Panel (hidden until processed) ──── -->
+        <section class="panel results-panel glass hidden" id="results-panel">
+
+            <!-- Guardrail Warning Banner -->
+            <div class="guardrail-banner hidden" id="guardrail-banner">
+                <div class="banner-icon">🛡️</div>
+                <div class="banner-content">
+                    <strong>Guardrail Alert</strong>
+                    <p id="guardrail-message"></p>
+                    <ul id="guardrail-list"></ul>
+                </div>
+                <button class="btn-banner-ack hidden" id="btn-ack-guardrail" type="button">
+                    Acknowledge & Continue
+                </button>
             </div>
 
-          </div>
-        </div>
-
-        <!-- AUDIT PANEL -->
-        <div id="tab-audit" class="xl:col-span-2 hidden xl:block no-print">
-          <div class="eyebrow mb-3">Accuracy &amp; Completeness Audit</div>
-
-          <div id="audit-empty" class="card p-6 text-center text-sm" style="color:var(--ink-soft);">
-            Nothing to audit yet.
-          </div>
-
-          <div id="audit-output" class="hidden space-y-4">
-            <div class="card p-4">
-              <div class="text-xs font-semibold mb-2" style="color:var(--ink-soft);">MEDICATIONS &mdash; found in original note</div>
-              <div id="audit-meds" class="space-y-2"></div>
+            <!-- Status Badge -->
+            <div class="record-header" id="record-header">
+                <div class="record-info">
+                    <span class="record-label">Record</span>
+                    <span class="record-id" id="record-id-display">#—</span>
+                </div>
+                <div class="status-badge" id="status-badge">pending</div>
             </div>
-            <div class="card p-4">
-              <div class="text-xs font-semibold mb-2" style="color:var(--ink-soft);">FOLLOW-UPS &mdash; found in original note</div>
-              <div id="audit-fu" class="space-y-2"></div>
-            </div>
-            <div class="card p-4">
-              <div class="text-xs font-semibold mb-2" style="color:var(--ink-soft);">WARNING SIGNS &mdash; source</div>
-              <div id="audit-warn" class="space-y-2"></div>
-            </div>
-            <div class="card p-4">
-              <div class="text-xs font-semibold mb-2" style="color:var(--ink-soft);">ORIGINAL NOTE (matched terms highlighted)</div>
-              <div id="audit-note-view" class="text-xs font-mono leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto"></div>
-            </div>
-          </div>
-        </div>
 
-      </div>
-    </section>
-  </div>
-</main>
+            <!-- Tab Navigation -->
+            <div class="tab-nav" id="tab-nav">
+                <button class="tab active" data-tab="patient-view" id="tab-patient">
+                    <span class="tab-icon">💊</span> Patient View
+                </button>
+                <button class="tab" data-tab="extracted-data" id="tab-extracted">
+                    <span class="tab-icon">🔬</span> Extracted Data
+                </button>
+                <button class="tab" data-tab="audit-trail" id="tab-audit">
+                    <span class="tab-icon">✅</span> Audit Trail
+                    <span class="audit-count" id="audit-count"></span>
+                </button>
+            </div>
 
-<script src="app.js"></script>
+            <!-- Tab Content: Patient View -->
+            <div class="tab-content active" id="content-patient-view">
+                <div id="patient-instructions"></div>
+            </div>
+
+            <!-- Tab Content: Extracted Data -->
+            <div class="tab-content" id="content-extracted-data">
+                <div id="extracted-data-view"></div>
+            </div>
+
+            <!-- Tab Content: Audit Trail -->
+            <div class="tab-content" id="content-audit-trail">
+                <div id="audit-list"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-bar" id="action-bar">
+                <button class="btn btn-success" id="btn-verify" type="button" disabled>
+                    <span class="btn-icon">✓</span> Verify as Nurse
+                </button>
+                <button class="btn btn-export" id="btn-export" type="button" disabled>
+                    <span class="btn-icon">📄</span> Export PDF
+                </button>
+                <button class="btn btn-secondary" id="btn-new" type="button">
+                    <span class="btn-icon">+</span> New Note
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- ─── Toast Container ──────────────────────────── -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
 </body>
 </html>
