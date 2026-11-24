@@ -1,6 +1,6 @@
 
    SAMPLE MESSY DISCHARGE NOTES
-   ============================================================ */
+   
 const SAMPLES = {
   chf: `DISCHARGE SUMMARY
 Pt: 68 yo F, admitted 3d for acute on chronic CHF exacerbation, EF 35% (echo 6/2). Sx: worsening DOE, orthopnea 3-pillow, +2 LE edema, wt gain 8lbs/1wk. CXR c/w pulm edema. BNP 1450 on admit.
